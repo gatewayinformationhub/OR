@@ -1,0 +1,1173 @@
+<!DOCTYPE html>
+<html lang="th" class="h-full bg-[#050b14]">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OR Digital Matrix Dashboard (All Weeks)</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap');
+    
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+    .font-tech {
+      font-family: 'Chakra Petch', sans-serif;
+    }
+    .font-num {
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* Fixed Sticky Positioning for Horizontal & Vertical Scroll */
+    .sticky-col {
+      position: sticky;
+      left: 0;
+      z-index: 15;
+    }
+    .sticky-header {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+    }
+    .sticky-corner {
+      position: sticky;
+      left: 0;
+      top: 0;
+      z-index: 30;
+    }
+
+    /* Cell Color Schemes exactly matching user reference image */
+    .cell-pass {
+      background-color: #10b981; /* Emerald Green */
+      color: #ffffff;
+      font-weight: 700;
+    }
+    .cell-fail {
+      background-color: #f43f5e; /* Vibrant Rose Red */
+      color: #ffffff;
+      font-weight: 700;
+    }
+    .cell-empty {
+      background-color: #ffffff; /* Crisp White */
+      color: #94a3b8; /* Muted Slate Dash */
+      font-weight: 500;
+    }
+
+    /* Scrollbar Styling */
+    ::-webkit-scrollbar {
+      width: 7px;
+      height: 7px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #060d19;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #1e293b;
+      border-radius: 4px;
+      border: 1px solid #334155;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #0284c7;
+    }
+  </style>
+</head>
+<body class="h-full flex flex-col bg-[#050b14] text-slate-100 overflow-hidden select-none">
+
+  <!-- TOP DIGITAL COCKPIT CONTROL BAR (Z-50 to prevent dropdown clipping) -->
+  <header class="relative z-50 bg-[#091220]/95 border-b border-cyan-900/50 px-4 py-2 flex items-center justify-between shrink-0 shadow-xl backdrop-blur-md">
+    <div class="flex items-center space-x-3">
+      <!-- Cockpit Title Badge -->
+      <div class="flex items-center space-x-2 bg-gradient-to-r from-cyan-950 to-slate-900 border border-cyan-500/60 px-3 py-1 rounded-lg shadow-[0_0_15px_rgba(6,182,212,0.35)]">
+        <i data-lucide="cpu" class="w-4 h-4 text-cyan-400 animate-pulse"></i>
+        <span class="font-tech font-bold text-sm tracking-wider text-cyan-300">OR MATRIX MONITOR</span>
+      </div>
+
+      <!-- Factory Area Selector Filter -->
+      <div class="flex items-center bg-slate-900/90 border border-slate-800 rounded-lg p-0.5 text-xs font-medium">
+        <button onclick="setAreaFilter('ALL')" id="filterAllBtn" class="px-2.5 py-1 rounded-md bg-cyan-700 text-white font-semibold transition">ALL</button>
+        <button onclick="setAreaFilter('KN')" id="filterKnBtn" class="px-2.5 py-1 rounded-md text-slate-400 hover:text-white transition">KN</button>
+        <button onclick="setAreaFilter('LSDS')" id="filterLsdsBtn" class="px-2.5 py-1 rounded-md text-slate-400 hover:text-white transition">LSDS</button>
+      </div>
+
+      <!-- Machine Selector Dropdown (Fixed Overlap Issue with z-index 100) -->
+      <div class="relative">
+        <button id="machineFilterBtn" onclick="toggleMachineDropdown(event)" class="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-700/80 hover:border-cyan-500 text-slate-300 text-xs flex items-center space-x-1.5 transition">
+          <i data-lucide="layers" class="w-3.5 h-3.5 text-cyan-400"></i>
+          <span>Select Lines (<span id="selectedCountDisplay">All</span>)</span>
+          <i data-lucide="chevron-down" class="w-3 h-3 text-slate-400"></i>
+        </button>
+
+        <!-- Multi-select Popup (z-[100] to sit cleanly over sticky headers) -->
+        <div id="machineDropdownMenu" onclick="event.stopPropagation()" class="hidden absolute top-full left-0 mt-2 w-72 bg-slate-900/95 border border-cyan-700/80 rounded-xl shadow-[0_10px_40px_rgba(0,0,0,0.8)] p-3 z-[100] text-xs backdrop-blur-xl">
+          <div class="flex items-center justify-between pb-2 mb-2 border-b border-slate-800">
+            <span class="font-bold text-cyan-300 flex items-center space-x-1.5">
+              <i data-lucide="check-square" class="w-3.5 h-3.5 text-cyan-400"></i>
+              <span>Filter Lines</span>
+            </span>
+            <div class="space-x-2">
+              <button onclick="selectAllMachines(true)" class="text-[11px] text-cyan-400 hover:text-cyan-300 font-semibold underline">All</button>
+              <button onclick="selectAllMachines(false)" class="text-[11px] text-rose-400 hover:text-rose-300 font-semibold underline">None</button>
+            </div>
+          </div>
+          <!-- Search within dropdown -->
+          <div class="mb-2">
+            <input type="text" id="dropdownSearchInput" placeholder="Filter machine in list..." class="w-full text-[11px] px-2 py-1 rounded bg-slate-950 border border-slate-700 text-slate-200 placeholder-slate-500 focus:outline-none focus:border-cyan-500">
+          </div>
+          <div id="machineCheckboxList" class="max-h-64 overflow-y-auto space-y-1 pr-1 font-mono">
+            <!-- Rendered by JS -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Search Bar -->
+      <div class="relative w-36 sm:w-48">
+        <i data-lucide="search" class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2"></i>
+        <input type="text" id="searchInput" placeholder="Search line..." class="w-full text-xs pl-8 pr-2.5 py-1 rounded-lg bg-slate-950/90 border border-slate-800 text-slate-200 placeholder-slate-500 focus:outline-none focus:border-cyan-500">
+      </div>
+    </div>
+
+    <!-- Right Controls: Target Adjuster, Auto-Refresh, Sync, Stats -->
+    <div class="flex items-center space-x-2.5 text-xs">
+      
+      <!-- Quick Global Target Setting -->
+      <div class="flex items-center space-x-1.5 bg-slate-900/90 border border-slate-800 px-2.5 py-1 rounded-lg">
+        <span class="text-slate-400 text-[11px]">Target:</span>
+        <input type="number" id="globalTargetInput" step="0.5" min="50" max="100" class="w-14 px-1.5 py-0.5 bg-slate-950 border border-slate-700 text-center font-bold text-amber-400 rounded text-xs focus:border-cyan-500">
+        <span class="text-slate-400 font-bold">%</span>
+      </div>
+
+      <!-- Target Manager Modal Button -->
+      <button onclick="openTargetModal()" class="px-2.5 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-700 text-cyan-300 font-medium flex items-center space-x-1.5 transition">
+        <i data-lucide="sliders" class="w-3.5 h-3.5"></i>
+        <span class="hidden md:inline">Targets</span>
+      </button>
+
+      <!-- Auto-Refresh Controller Bar -->
+      <div class="flex items-center space-x-1.5 bg-slate-900/90 border border-slate-800 px-2 py-1 rounded-lg">
+        <button id="autoRefreshToggleBtn" onclick="toggleAutoRefresh()" class="flex items-center space-x-1 text-[11px] font-semibold text-emerald-400 hover:text-emerald-300 transition">
+          <span class="w-2 h-2 rounded-full bg-emerald-500 animate-ping inline-block" id="autoRefreshIndicator"></span>
+          <span>Auto</span>
+        </button>
+        <select id="autoRefreshIntervalSelect" onchange="changeAutoRefreshInterval(this.value)" class="bg-slate-950 text-slate-300 border border-slate-700 rounded px-1 text-[10px] focus:outline-none">
+          <option value="30">30s</option>
+          <option value="60" selected>1m</option>
+          <option value="300">5m</option>
+        </select>
+        <span id="refreshCountdownDisplay" class="text-[10px] text-slate-500 font-num w-5 text-right">60s</span>
+      </div>
+
+      <!-- Manual Sync Live Google Sheet -->
+      <button id="syncBtn" onclick="syncGoogleSheets(true)" class="px-3 py-1 rounded-lg bg-cyan-700 hover:bg-cyan-600 border border-cyan-500/80 text-white font-semibold flex items-center space-x-1.5 transition shadow-[0_0_12px_rgba(6,182,212,0.4)]">
+        <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+        <span class="hidden sm:inline">Sync</span>
+      </button>
+
+      <!-- Paste Data Modal -->
+      <button onclick="openPasteModal()" class="px-2.5 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300 transition" title="Paste Table from Sheets">
+        <i data-lucide="clipboard-paste" class="w-3.5 h-3.5"></i>
+      </button>
+
+      <!-- Week Range Badge -->
+      <div class="bg-cyan-950/80 border border-cyan-800 px-2.5 py-1 rounded-lg text-[11px] font-num text-cyan-300 font-bold">
+        <span id="weekSpanBadge">WK1 - WK45</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- SUB-BAR / LEGEND -->
+  <div class="relative z-40 bg-[#030812] border-b border-slate-800/80 px-4 py-1 flex items-center justify-between text-[11px] text-slate-400 shrink-0">
+    <div class="flex items-center space-x-4">
+      <span class="text-slate-300">Lines Displayed: <b id="displayedCount" class="text-cyan-400 font-num">0</b></span>
+      <span class="hidden sm:inline text-slate-500">|</span>
+      <span class="hidden sm:inline text-slate-400">Sheet: <b class="text-slate-200">Consolidated_OR</b></span>
+      <span class="hidden md:inline text-slate-500">|</span>
+      <span class="hidden md:inline text-slate-400">Last Synced: <b id="lastSyncedTime" class="text-cyan-400 font-num">Never</b></span>
+    </div>
+
+    <!-- Visual Legend matching the reference image -->
+    <div class="flex items-center space-x-4 font-semibold text-[11px]">
+      <div class="flex items-center space-x-1.5">
+        <span class="w-3 h-3 rounded bg-[#10b981] inline-block shadow-[0_0_6px_#10b981]"></span>
+        <span class="text-emerald-400">≥ Target (Pass)</span>
+      </div>
+      <div class="flex items-center space-x-1.5">
+        <span class="w-3 h-3 rounded bg-[#f43f5e] inline-block shadow-[0_0_6px_#f43f5e]"></span>
+        <span class="text-rose-400">&lt; Target (Below)</span>
+      </div>
+      <div class="flex items-center space-x-1.5">
+        <span class="w-3 h-3 rounded bg-white border border-slate-300 inline-block"></span>
+        <span class="text-slate-300">White / "-" (No Plan / Empty)</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAIN MATRIX VIEW (FULL-SCREEN TABLE) -->
+  <main class="flex-1 overflow-hidden relative p-2 bg-[#050b14]">
+    <div class="w-full h-full overflow-auto bg-[#091220]/70 rounded-xl border border-slate-800 shadow-2xl relative">
+      <table class="w-full text-xs text-left border-collapse border-spacing-0">
+        <thead id="matrixThead" class="sticky-header bg-[#0e1a2e] text-slate-200 font-tech uppercase tracking-wider border-b-2 border-slate-700">
+          <!-- Dynamic Header Columns Generated by JS -->
+        </thead>
+        <tbody id="matrixTbody" class="divide-y divide-slate-800/80 font-num">
+          <!-- Matrix Body Rows Generated by JS -->
+        </tbody>
+      </table>
+    </div>
+  </main>
+
+  <!-- MODAL 1: INDIVIDUAL LINE TARGETS -->
+  <div id="targetModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-cyan-800/80 rounded-xl max-w-lg w-full max-h-[90vh] flex flex-col shadow-2xl">
+      <div class="px-5 py-3 border-b border-slate-800 flex items-center justify-between">
+        <div class="flex items-center space-x-2">
+          <i data-lucide="sliders" class="w-4 h-4 text-cyan-400"></i>
+          <h3 class="font-bold text-sm text-cyan-300">Set Individual Machine Targets</h3>
+        </div>
+        <button onclick="closeTargetModal()" class="text-slate-400 hover:text-white">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <div class="p-5 flex-1 overflow-y-auto space-y-4 text-xs">
+        <p class="text-slate-400">
+          สามารถระบุ Target แยกเฉพาะเจาะจงแต่ละเครื่องจักรได้ หากช่องไหนเว้นว่างไว้ จะใช้ค่า <b>Global Target</b> (<span id="modalGlobalTargetDisplay">95.0</span>%) โดยอัตโนมัติ
+        </p>
+        <div id="modalMachineTargetsList" class="space-y-1.5 max-h-72 overflow-y-auto pr-1">
+          <!-- Machine rows injected by JS -->
+        </div>
+      </div>
+
+      <div class="px-5 py-3 border-t border-slate-800 bg-slate-950 flex justify-end space-x-2">
+        <button onclick="closeTargetModal()" class="px-3 py-1.5 rounded-lg border border-slate-700 text-slate-300 hover:bg-slate-800 text-xs">Cancel</button>
+        <button onclick="saveIndividualTargets()" class="px-4 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-semibold text-xs shadow-[0_0_12px_rgba(6,182,212,0.4)]">Apply Targets</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL 2: PASTE DATA FROM GOOGLE SHEETS -->
+  <div id="pasteModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-cyan-800/80 rounded-xl max-w-2xl w-full max-h-[90vh] flex flex-col shadow-2xl">
+      <div class="px-5 py-3 border-b border-slate-800 flex items-center justify-between">
+        <div class="flex items-center space-x-2">
+          <i data-lucide="clipboard-paste" class="w-4 h-4 text-cyan-400"></i>
+          <h3 class="font-bold text-sm text-cyan-300">Paste Data from Google Sheets</h3>
+        </div>
+        <button onclick="closePasteModal()" class="text-slate-400 hover:text-white">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <div class="p-5 flex-1 overflow-y-auto space-y-3 text-xs">
+        <p class="text-slate-400 leading-relaxed">
+          คัดลอกข้อมูลตารางจากชีต <code class="text-cyan-400 bg-slate-950 px-1 py-0.5 rounded">Consolidated_OR</code> แล้วนำมาวางลงในช่องนี้ (สคริปต์รองรับทั้งคอลัมน์มาตรฐาน: Week, Line, Group, Plan, Act, Diff, Abs Diff, OR):
+        </p>
+        <textarea id="pasteTextArea" rows="10" placeholder="Week&#9;Line&#9;Group&#9;Plan&#9;Act&#9;Diff&#9;Abs Diff&#9;OR..." class="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-xs font-mono text-slate-200 placeholder-slate-600 focus:outline-none focus:border-cyan-500"></textarea>
+      </div>
+
+      <div class="px-5 py-3 border-t border-slate-800 bg-slate-950 flex justify-end space-x-2">
+        <button onclick="closePasteModal()" class="px-3 py-1.5 rounded-lg border border-slate-700 text-slate-300 hover:bg-slate-800 text-xs">Cancel</button>
+        <button onclick="applyPastedData()" class="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs shadow-[0_0_12px_rgba(16,185,129,0.4)]">Import Table</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- APPLICATION JAVASCRIPT LOGIC -->
+  <script>
+    // --- 1. CONFIGURATION & STATE ---
+    const SPREADSHEET_ID = "1DjW4Y4IVtB9IAr4vksgw74t0WDG9mWS3k4iP7iI71kA";
+    const GID = "717074409";
+
+    let maxWeek = 45; 
+    let globalDefaultTarget = 98.0; 
+    let currentAreaFilter = 'ALL'; 
+    let searchQuery = '';
+    let dropdownSearchQuery = '';
+    let selectedMachinesSet = new Set(); 
+
+    // Auto-refresh timer states
+    let isAutoRefreshActive = true;
+    let autoRefreshIntervalSec = 60;
+    let countdownTimerSec = 60;
+    let refreshIntervalHandle = null;
+
+    // Master factory lines ordering (KN first, then LSDS)
+    const FACTORY_LINES = [
+      // === 1. KN FACTORY (Cube, Cup, Sachet, Powder, Dry Mix) ===
+      { name: "Benhil 1", group: "Cube", area: "KN" },
+      { name: "Benhil 2", group: "Cube", area: "KN" },
+      { name: "Benhil 3", group: "Cube", area: "KN" },
+      { name: "Benhil 4", group: "Cube", area: "KN" },
+      { name: "Benhil 5", group: "Cube", area: "KN" },
+      { name: "Benhil 6", group: "Cube", area: "KN" },
+      { name: "Benhil 7", group: "Cube", area: "KN" },
+      { name: "Corraza1,2", group: "Cube", area: "KN" },
+      { name: "CORAZZA1", group: "Cube", area: "KN" },
+      { name: "CORAZZA2", group: "Cube", area: "KN" },
+      { name: "CORAZZA3", group: "Cube", area: "KN" },
+      { name: "CORAZZA4", group: "Cube", area: "KN" },
+      { name: "CORAZZA5", group: "Cube", area: "KN" },
+      { name: "Cup Filler 2", group: "Jok Cup", area: "KN" },
+      { name: "Cup Filler 3", group: "Jok Cup", area: "KN" },
+      { name: "Cup Filler 4", group: "Jok Cup", area: "KN" },
+      { name: "Bartelt 1", group: "Jok Sachet", area: "KN" },
+      { name: "Bartelt 2", group: "Powder", area: "KN" },
+      { name: "Bartelt 3", group: "Powder", area: "KN" },
+      { name: "Mespack 1", group: "Jok Sachet", area: "KN" },
+      { name: "Mespack 2", group: "Jok Sachet", area: "KN" },
+      { name: "Mespack 3", group: "Jok Sachet", area: "KN" },
+      { name: "Mespack 4", group: "Jok Sachet", area: "KN" },
+      { name: "Mespack 5", group: "Jok Sachet", area: "KN" },
+      { name: "VFFS1", group: "Powder", area: "KN" },
+      { name: "Syntegon 1", group: "Powder", area: "KN" },
+      { name: "Syntegon 2", group: "Dry Mix", area: "KN" },
+      { name: "Manual KN2", group: "Powder", area: "KN" },
+      { name: "Manual KN4", group: "Powder", area: "KN" },
+      { name: "Demar2", group: "Powder", area: "KN" },
+      { name: "Demar3", group: "Powder", area: "KN" },
+      { name: "Demar4", group: "Powder", area: "KN" },
+      { name: "G2H", group: "Dry Mix", area: "KN" },
+      { name: "Manual DM", group: "Dry Mix", area: "KN" },
+      { name: "UP DM", group: "Dry Mix", area: "KN" },
+      { name: "Amizon 1", group: "Powder", area: "KN" },
+
+      // === 2. LSDS FACTORY (DS, LS) ===
+      { name: "Sachet3", group: "DS", area: "LSDS" },
+      { name: "Sachet4", group: "DS", area: "LSDS" },
+      { name: "Manual DS", group: "DS", area: "LSDS" },
+      { name: "ILLA PACK", group: "DS", area: "LSDS" },
+      { name: "Small Sachet", group: "DS", area: "LSDS" },
+      { name: "Catering", group: "DS", area: "LSDS" },
+      { name: "Sachet", group: "LS", area: "LSDS" },
+      { name: "Inline", group: "LS", area: "LSDS" },
+      { name: "Serac", group: "LS", area: "LSDS" },
+      { name: "Spice", group: "LS", area: "LSDS" }
+    ];
+
+    let machineTargets = {};
+    FACTORY_LINES.forEach(l => {
+      machineTargets[l.name] = 98.0;
+    });
+
+    let dataset = {};
+
+    // --- 2. INITIALIZE DATASET WITH REAL BASELINE SNAPSHOT ---
+    function initializeDataset() {
+      dataset = {};
+      maxWeek = 45;
+
+      FACTORY_LINES.forEach(line => {
+        dataset[line.name] = {
+          name: line.name,
+          group: line.group,
+          area: line.area,
+          weeks: {}
+        };
+        for (let w = 1; w <= maxWeek; w++) {
+          dataset[line.name].weeks[w] = 0.0;
+        }
+      });
+
+      // ฝังข้อมูลตัวเลขจริงของเครื่องจักรต่างๆ (จาก Week 2 ถึง Week 43) เป็นค่าตั้งต้นทันที
+      const baselineData = {
+        "Benhil 1": { 2: 99.1, 3: 100.0, 4: 98.5, 5: 98.0, 6: 99.9, 7: 95.6, 8: 100.0, 9: 100.0, 10: 98.8, 11: 98.1, 12: 97.7, 13: 99.6, 14: 99.5, 18: 36.1, 19: 99.5, 20: 93.7, 21: 95.9, 22: 99.4, 23: 98.5, 24: 98.9, 25: 84.6, 26: 90.8, 27: 91.1, 28: 95.9, 29: 99.2, 30: 99.5, 31: 99.0, 32: 99.2, 33: 98.4, 34: 99.1, 35: 98.8, 36: 98.5, 37: 99.1, 38: 98.9, 40: 93.17, 41: 99.67 },
+        "Benhil 2": { 2: 98.2, 3: 100.0, 4: 98.6, 5: 99.6, 6: 97.7, 7: 100.0, 8: 99.9, 9: 100.0, 10: 99.7, 11: 99.7, 12: 92.7, 13: 99.8, 14: 98.5, 15: 99.3, 17: 100.0, 18: 88.2, 19: 99.7, 20: 88.7, 21: 94.8, 22: 99.9, 23: 97.7, 24: 99.6, 25: 99.9, 26: 99.3, 27: 100.0, 28: 98.4, 29: 99.9, 30: 99.5, 31: 98.7, 32: 98.9, 33: 99.1, 34: 98.2, 35: 98.5, 36: 99.1, 37: 98.7, 38: 99.0, 40: 99.22, 41: 99.49 },
+        "Benhil 3": { 2: 98.0, 3: 98.8, 4: 94.8, 5: 99.2, 6: 96.9, 7: 99.0, 8: 99.2, 9: 98.1, 10: 98.2, 11: 98.2, 12: 99.9, 13: 99.9, 14: 99.7, 18: 40.7, 19: 89.7, 20: 82.5, 21: 81.4, 22: 96.3, 23: 99.3, 24: 98.5, 25: 81.3, 26: 93.6, 27: 98.3, 28: 90.3, 29: 99.6, 30: 93.3, 31: 98.1, 32: 98.6, 33: 97.9, 34: 98.5, 35: 98.0, 36: 98.4, 37: 97.8, 38: 98.2, 40: 93.96, 41: 98.49 },
+        "Benhil 4": { 2: 97.6, 3: 100.0, 4: 98.1, 5: 76.6, 6: 99.8, 7: 98.2, 8: 98.6, 9: 99.7, 10: 99.9, 11: 98.5, 12: 99.5, 13: 98.7, 14: 98.7, 15: 99.0, 17: 90.4, 18: 61.4, 19: 96.3, 20: 94.2, 21: 90.8, 22: 98.8, 23: 99.4, 24: 99.8, 25: 91.6, 26: 95.1, 27: 74.4, 28: 87.5, 29: 87.6, 30: 99.1, 31: 98.3, 32: 99.1, 33: 98.6, 34: 98.9, 35: 98.2, 36: 98.7, 37: 99.0, 38: 98.4, 40: 98.56, 41: 99.35 },
+        "Benhil 5": { 2: 99.5, 3: 89.5, 4: 95.1, 5: 75.4, 6: 99.0, 7: 99.0, 8: 99.4, 9: 98.5, 10: 97.7, 11: 99.8, 12: 99.3, 13: 99.7, 14: 99.5, 15: 98.9, 17: 97.1, 18: 73.4, 19: 99.9, 20: 99.4, 21: 99.5, 22: 99.6, 23: 98.5, 24: 98.8, 25: 99.5, 26: 95.8, 27: 99.2, 28: 99.0, 29: 100.0, 30: 99.6, 31: 99.0, 32: 98.4, 33: 98.9, 34: 99.1, 35: 98.6, 36: 99.0, 37: 98.5, 38: 99.2, 40: 82.29, 41: 98.93 },
+        "Benhil 6": { 2: 99.7, 3: 99.1, 4: 97.9, 5: 99.9, 6: 99.3, 7: 99.8, 8: 99.5, 9: 99.9, 10: 98.6, 11: 99.7, 12: 97.1, 13: 99.4, 14: 99.9, 15: 98.8, 17: 99.6, 18: 96.9, 19: 98.7, 20: 88.9, 21: 99.6, 22: 99.1, 23: 99.5, 24: 98.1, 25: 99.9, 26: 99.8, 27: 95.3, 29: 97.7, 30: 97.7, 31: 98.5, 32: 98.8, 33: 99.0, 34: 98.2, 35: 98.7, 36: 99.1, 37: 98.8, 38: 98.9, 40: 98.99, 41: 99.32 },
+        "Benhil 7": { 2: 98.5, 3: 99.3, 4: 98.4, 5: 98.7, 6: 99.6, 7: 99.7, 8: 98.5, 9: 95.5, 10: 98.4, 11: 99.0, 12: 99.4, 13: 99.1, 14: 99.1, 15: 99.6, 17: 99.0, 18: 100.0, 19: 99.4, 20: 99.5, 21: 98.7, 22: 98.4, 23: 98.6, 24: 97.7, 25: 99.9, 26: 99.4, 27: 99.4, 28: 99.5, 29: 98.6, 30: 99.3, 31: 98.9, 32: 99.1, 33: 98.5, 34: 98.8, 35: 99.2, 36: 98.4, 37: 98.7, 38: 99.1, 41: 99.54 },
+        "CORAZZA1": { 2: 99.6, 3: 95.4, 4: 98.9, 5: 99.8, 6: 99.8, 7: 90.8, 8: 98.9, 9: 90.6, 10: 95.6, 11: 99.9, 12: 93.4, 13: 94.5, 14: 99.9, 17: 91.6, 18: 95.9, 19: 89.8, 20: 100.0, 21: 99.7, 22: 96.0, 23: 84.3, 24: 99.7, 25: 99.8, 26: 98.3, 27: 99.8, 28: 99.4 },
+        "CORAZZA4": { 2: 98.3, 3: 98.4, 4: 98.1, 5: 97.4, 6: 91.4, 8: 97.6, 9: 95.4, 10: 98.6, 11: 98.1, 12: 97.0, 13: 99.8, 14: 99.5, 15: 99.6, 17: 91.9, 18: 97.9, 19: 99.3, 20: 99.3, 21: 98.6, 22: 99.4, 23: 94.3, 24: 98.0, 25: 94.9, 26: 97.5, 27: 99.5, 28: 99.9, 29: 95.9, 30: 99.6, 40: 99.39, 41: 98.94 },
+        "CORAZZA5": { 2: 99.6, 3: 99.5, 4: 99.9, 5: 96.0, 6: 99.4, 7: 99.3, 8: 99.9, 9: 96.1, 10: 98.0, 11: 99.1, 12: 99.8, 13: 96.1, 14: 99.5, 15: 99.4, 17: 98.3, 18: 66.2, 19: 95.9, 20: 98.7, 21: 98.3, 22: 99.9, 23: 99.7, 24: 98.8, 25: 99.8, 26: 99.8, 27: 99.9, 28: 99.6, 29: 99.8, 30: 100.0, 40: 93.06, 41: 59.08 },
+        "Cup Filler 2": { 2: 86.1, 3: 92.1, 4: 95.2, 5: 79.5, 6: 94.2, 7: 75.1, 8: 67.5, 9: 84.4, 10: 97.6, 11: 86.5, 12: 98.1, 13: 88.7, 14: 98.3, 15: 98.1, 17: 96.6, 18: 96.6, 19: 85.2, 20: 99.3, 21: 72.5, 22: 96.9, 23: 94.9, 24: 83.0, 25: 83.9, 26: 96.8, 27: 97.8, 28: 99.2, 29: 99.0, 30: 96.1, 40: 98.55, 41: 95.48 },
+        "Cup Filler 3": { 2: 99.8, 3: 85.7, 4: 82.7, 5: 100.0, 6: 98.3, 7: 89.4, 8: 96.9, 9: 89.0, 10: 85.4, 11: 90.3, 12: 96.5, 13: 99.3, 14: 99.6, 15: 98.9, 17: 99.1, 18: 99.1, 19: 94.0, 20: 98.4, 21: 99.9, 22: 95.2, 23: 91.7, 24: 99.4, 25: 99.6, 27: 99.9, 29: 99.8, 30: 99.0, 40: 99.41, 41: 97.31 },
+        "Cup Filler 4": { 2: 80.0, 3: 91.2, 4: 72.4, 5: 94.0, 6: 87.0, 7: 99.4, 8: 95.9, 9: 98.9, 10: 96.5, 11: 98.8, 12: 91.7, 13: 99.9, 14: 98.0, 15: 85.9, 17: 91.5, 18: 87.2, 19: 97.9, 20: 98.9, 21: 99.2, 22: 99.0, 23: 98.7, 24: 98.4, 25: 98.7, 26: 98.9, 27: 98.7, 28: 79.5, 29: 96.4, 30: 94.8, 40: 96.81, 41: 93.62 },
+        "Bartelt 1": { 2: 99.7, 3: 99.3, 4: 99.0, 5: 95.9, 6: 98.8, 7: 92.4, 8: 97.6, 9: 99.7, 11: 95.0, 12: 88.2, 15: 75.6, 17: 99.1, 18: 76.9, 19: 98.7, 20: 99.7, 21: 99.1, 23: 98.7, 24: 99.8, 25: 89.4, 27: 85.7, 28: 99.1, 30: 99.1, 40: 65.05, 41: 97.25 },
+        "Bartelt 2": { 2: 98.5, 3: 97.2, 4: 99.7, 6: 98.5, 9: 98.6, 11: 69.5, 12: 93.8, 13: 96.8, 14: 98.1, 15: 89.5, 18: 98.7, 23: 71.8, 24: 93.8, 25: 98.3, 29: 98.6, 41: 77.12 },
+        "Bartelt 3": { 2: 71.4, 3: 99.9, 4: 99.9, 5: 96.7, 7: 99.6, 8: 96.8, 11: 98.7, 12: 97.2, 13: 98.4, 14: 98.2, 15: 98.7, 17: 98.9, 18: 98.6, 19: 98.7, 20: 99.0, 21: 95.9, 22: 99.4, 23: 98.1, 24: 99.1, 25: 98.3, 27: 97.3, 28: 96.5, 29: 76.8, 30: 98.2, 40: 99.50, 41: 95.55 },
+        "Mespack 3": { 2: 85.4, 3: 89.6, 4: 92.5, 5: 99.3, 6: 99.4, 7: 98.7, 8: 99.7, 9: 94.0, 10: 88.0, 11: 95.7, 12: 93.9, 13: 99.2, 14: 99.5, 15: 99.3, 17: 78.5, 18: 90.9, 19: 88.9, 20: 95.5, 21: 98.3, 22: 98.1, 23: 99.9, 24: 99.0, 25: 84.5, 26: 98.5, 27: 98.8, 28: 98.4, 29: 98.6, 30: 99.0, 40: 93.18 },
+        "Mespack 4": { 2: 99.7, 3: 99.5, 4: 98.9, 5: 98.9, 6: 99.6, 7: 99.8, 8: 99.7, 9: 96.8, 10: 98.0, 11: 98.8, 12: 98.8, 14: 93.2, 15: 97.1, 17: 39.2, 18: 71.3, 19: 98.6, 20: 98.4, 21: 98.7, 22: 99.6, 23: 99.4, 24: 92.6, 25: 98.5, 26: 96.2, 27: 99.0, 28: 99.5, 29: 98.1, 30: 95.9, 31: 98.5, 32: 94.8, 33: 99.4, 34: 91.5, 36: 98.4, 38: 91.7, 40: 91.38 },
+        "Mespack 5": { 2: 99.1, 3: 98.9, 4: 96.9, 5: 98.8, 6: 99.9, 7: 99.9, 8: 99.6, 10: 64.3, 11: 98.7, 12: 93.8, 13: 97.5, 14: 99.7, 15: 81.2, 17: 48.5, 18: 100.0, 19: 99.4, 20: 99.2, 21: 99.4, 22: 99.1, 23: 75.2, 24: 94.0, 25: 98.7, 26: 99.8, 27: 96.2, 28: 92.7, 29: 94.4, 31: 93.3, 32: 96.8, 33: 94.5, 34: 98.4, 35: 99.4, 36: 100.0, 37: 99.4, 38: 95.2, 40: 56.23 },
+        "Syntegon 1": { 2: 99.87, 12: 99.68, 26: 98.2, 27: 98.9, 28: 98.0, 29: 100.0, 30: 96.6, 31: 99.8, 32: 97.5, 33: 97.3, 34: 96.7, 36: 100.0, 37: 97.4, 38: 95.7, 40: 99.52 },
+        "Syntegon 2": { 2: 95.55, 12: 99.28, 24: 96.2, 25: 96.9, 26: 96.7, 27: 97.2, 28: 99.2, 29: 96.7, 30: 98.0, 31: 92.1, 32: 99.0, 33: 92.6, 35: 93.7, 36: 98.8, 37: 92.4, 40: 67.55 },
+        "Sachet3": { 6: 98.36, 7: 98.28, 12: 98.43, 25: 97.2, 26: 100.0, 27: 99.7, 28: 93.0, 30: 93.7, 31: 99.0, 32: 95.2, 33: 98.3, 34: 99.9, 35: 96.5, 36: 97.4, 37: 98.6, 38: 99.6, 40: 97.71 },
+        "Sachet4": { 6: 97.63, 7: 93.25, 12: 98.11, 24: 97.7, 27: 95.1, 28: 95.5, 30: 97.1, 31: 93.7, 32: 90.9, 35: 97.2, 37: 93.6, 38: 90.6 },
+        "Manual DS": { 6: 98.31, 7: 98.50, 12: 96.94, 24: 98.6, 25: 97.3, 27: 97.9, 28: 95.9, 29: 99.0, 30: 97.1, 31: 100.0, 32: 94.2, 33: 95.5, 36: 98.0, 37: 96.0, 38: 93.3, 40: 99.24 },
+        "ILLA PACK": { 6: 85.82, 7: 97.16, 12: 100.0, 24: 98.1, 25: 97.0, 26: 98.3, 28: 98.7, 29: 93.4, 32: 99.7, 33: 95.2, 34: 97.2, 35: 95.5, 37: 97.6, 40: 98.97 },
+        "Small Sachet": { 24: 94.8, 25: 99.0, 26: 96.5, 27: 99.1, 30: 99.4, 31: 97.5, 32: 97.3, 35: 95.8, 38: 95.5 },
+        "Catering": { 24: 95.3, 25: 98.3, 26: 92.3, 27: 99.1, 28: 96.5, 30: 93.0, 33: 92.4, 34: 95.0, 35: 93.2, 37: 94.5, 38: 92.4 },
+        "Sachet": { 6: 98.68, 7: 96.46, 12: 98.69, 24: 95.3, 25: 94.4, 26: 92.5, 27: 97.8, 29: 93.9, 30: 92.4, 31: 97.8, 32: 98.6, 33: 93.8, 35: 92.0, 36: 98.2, 38: 92.7, 40: 90.08 },
+        "Inline": { 6: 97.30, 25: 92.7, 27: 93.0, 28: 93.7, 30: 94.4, 31: 96.5, 32: 97.3, 33: 95.8, 34: 94.8, 35: 95.1, 36: 94.5, 37: 92.5, 38: 95.0 },
+        "Serac": { 6: 98.68, 7: 99.45, 12: 97.71, 24: 100.0, 25: 94.2, 27: 100.0, 28: 94.2, 31: 100.0, 32: 99.5, 33: 100.0, 35: 100.0, 36: 93.9, 37: 98.8, 38: 93.5, 40: 99.62 },
+        "Spice": { 24: 93.0, 25: 93.5, 26: 96.2, 28: 99.4, 29: 92.7, 31: 91.9, 32: 96.7, 33: 95.0, 34: 97.4, 35: 93.9, 36: 96.5 }
+      };
+
+      Object.keys(baselineData).forEach(mc => {
+        if (dataset[mc]) {
+          Object.keys(baselineData[mc]).forEach(wk => {
+            dataset[mc].weeks[parseInt(wk, 10)] = baselineData[mc][wk];
+          });
+        }
+      });
+
+      selectedMachinesSet = new Set(FACTORY_LINES.map(l => l.name));
+    }
+
+    // --- 3. LIVE GOOGLE SHEETS SYNC (JSONP CALLBACK - NO CORS ISSUES) ---
+    function syncGoogleSheets(isManual = false) {
+      const syncBtn = document.getElementById('syncBtn');
+      const originalHTML = syncBtn.innerHTML;
+      if (isManual) {
+        syncBtn.innerHTML = `<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i><span>Syncing...</span>`;
+        lucide.createIcons();
+      }
+
+      // ใช้ JSONP Injection ผ่าน Google Visualization API ข้ามปัญหา CORS ได้ 100%
+      const scriptId = 'gviz_jsonp_script';
+      const oldScript = document.getElementById(scriptId);
+      if (oldScript) oldScript.remove();
+
+      const script = document.createElement('script');
+      script.id = scriptId;
+      const cacheBust = Date.now();
+      script.src = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=responseHandler:handleGvizResponse;reqId:${cacheBust}&gid=${GID}&_cb=${cacheBust}`;
+      
+      script.onerror = () => {
+        console.warn("Live Google Sheet Sync error (Network/Access issue). Using existing cached data.");
+        if (isManual) {
+          syncBtn.innerHTML = originalHTML;
+          lucide.createIcons();
+        }
+      };
+
+      document.body.appendChild(script);
+
+      if (isManual) {
+        setTimeout(() => {
+          syncBtn.innerHTML = originalHTML;
+          lucide.createIcons();
+        }, 1200);
+      }
+    }
+
+    // Callback ที่ Google Visualization API จะเรียกกลับมาเมื่อส่งข้อมูลสำเร็จ
+    window.handleGvizResponse = function(response) {
+      if (!response || !response.table || !response.table.rows) return;
+      parseAndApplyGviz(response.table.rows);
+      updateLastSyncedTimestamp();
+    };
+
+    function updateLastSyncedTimestamp() {
+      const now = new Date();
+      const timeStr = now.toLocaleTimeString('en-US', { hour12: false });
+      const lastSyncedEl = document.getElementById('lastSyncedTime');
+      if (lastSyncedEl) lastSyncedEl.textContent = timeStr;
+    }
+
+    // Auto-refresh Timer Setup
+    function initAutoRefreshTimer() {
+      if (refreshIntervalHandle) clearInterval(refreshIntervalHandle);
+      countdownTimerSec = autoRefreshIntervalSec;
+
+      refreshIntervalHandle = setInterval(() => {
+        if (!isAutoRefreshActive) return;
+
+        countdownTimerSec--;
+        const timerEl = document.getElementById('refreshCountdownDisplay');
+        if (timerEl) timerEl.textContent = `${countdownTimerSec}s`;
+
+        if (countdownTimerSec <= 0) {
+          countdownTimerSec = autoRefreshIntervalSec;
+          syncGoogleSheets(false);
+        }
+      }, 1000);
+    }
+
+    function toggleAutoRefresh() {
+      isAutoRefreshActive = !isAutoRefreshActive;
+      const indicator = document.getElementById('autoRefreshIndicator');
+      const toggleBtn = document.getElementById('autoRefreshToggleBtn');
+
+      if (isAutoRefreshActive) {
+        indicator.className = "w-2 h-2 rounded-full bg-emerald-500 animate-ping inline-block";
+        toggleBtn.className = "flex items-center space-x-1 text-[11px] font-semibold text-emerald-400 hover:text-emerald-300 transition";
+        countdownTimerSec = autoRefreshIntervalSec;
+      } else {
+        indicator.className = "w-2 h-2 rounded-full bg-slate-600 inline-block";
+        toggleBtn.className = "flex items-center space-x-1 text-[11px] font-semibold text-slate-500 hover:text-slate-400 transition";
+        const timerEl = document.getElementById('refreshCountdownDisplay');
+        if (timerEl) timerEl.textContent = 'PAUSED';
+      }
+    }
+
+    function changeAutoRefreshInterval(val) {
+      autoRefreshIntervalSec = parseInt(val, 10) || 60;
+      countdownTimerSec = autoRefreshIntervalSec;
+    }
+
+    // CSV Parsing (สำหรับ Paste Modal)
+    function parseAndApplyCSV(csvText) {
+      const rows = csvText.split(/\r?\n/);
+      let detectedMaxWk = maxWeek;
+      let count = 0;
+
+      rows.forEach((rowStr) => {
+        if (!rowStr.trim()) return;
+        const cols = rowStr.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(v => v.replace(/^"|"$/g, '').trim());
+        
+        let wk = parseInt(cols[1], 10);
+        let line = cols[2];
+        let grp = cols[3] || "";
+        let orRaw = cols[8];
+
+        if (isNaN(wk) || !line) {
+          wk = parseInt(cols[0], 10);
+          line = cols[1];
+          grp = cols[2] || "";
+          orRaw = cols[7];
+        }
+
+        if (!isNaN(wk) && line && wk > 0) {
+          if (wk > detectedMaxWk) detectedMaxWk = wk;
+
+          let targetLine = FACTORY_LINES.find(fl => fl.name.toLowerCase() === line.toLowerCase());
+          const cleanLineName = targetLine ? targetLine.name : line;
+
+          if (!dataset[cleanLineName]) {
+            const area = (grp.includes('DS') || grp.includes('LS')) ? 'LSDS' : 'KN';
+            dataset[cleanLineName] = { name: cleanLineName, group: grp, area: area, weeks: {} };
+            selectedMachinesSet.add(cleanLineName);
+          }
+
+          let orVal = 0.0;
+          if (orRaw !== undefined && orRaw !== null && orRaw !== "" && orRaw !== "-") {
+            const parsed = parseFloat(String(orRaw).replace("%", ""));
+            if (!isNaN(parsed)) {
+              orVal = Number(parsed.toFixed(1));
+            }
+          }
+
+          dataset[cleanLineName].weeks[wk] = orVal;
+          count++;
+        }
+      });
+
+      if (count > 0) {
+        maxWeek = detectedMaxWk;
+        renderMatrix();
+        populateMachineCheckboxes();
+      }
+    }
+
+    function parseAndApplyGviz(rows) {
+      let detectedMaxWk = maxWeek;
+      let count = 0;
+
+      rows.forEach(r => {
+        const c = r.c;
+        if (!c) return;
+
+        let wk = c[1] ? parseInt(c[1].v !== undefined ? c[1].v : c[1].f, 10) : null;
+        let line = c[2] ? String(c[2].v !== undefined ? c[2].v : c[2].f).trim() : null;
+        let grp = c[3] ? String(c[3].v !== undefined ? c[3].v : c[3].f).trim() : "";
+        let orRaw = c[8] ? (c[8].v !== undefined ? c[8].v : c[8].f) : null;
+
+        if (!wk || !line) {
+          wk = c[0] ? parseInt(c[0].v !== undefined ? c[0].v : c[0].f, 10) : null;
+          line = c[1] ? String(c[1].v !== undefined ? c[1].v : c[1].f).trim() : null;
+          grp = c[2] ? String(c[2].v !== undefined ? c[2].v : c[2].f).trim() : "";
+          orRaw = c[7] ? (c[7].v !== undefined ? c[7].v : c[7].f) : null;
+        }
+
+        if (wk && line && wk > 0) {
+          if (wk > detectedMaxWk) detectedMaxWk = wk;
+
+          let targetLine = FACTORY_LINES.find(fl => fl.name.toLowerCase() === line.toLowerCase());
+          const cleanLineName = targetLine ? targetLine.name : line;
+
+          if (!dataset[cleanLineName]) {
+            const area = (grp.includes('DS') || grp.includes('LS')) ? 'LSDS' : 'KN';
+            dataset[cleanLineName] = { name: cleanLineName, group: grp, area: area, weeks: {} };
+            selectedMachinesSet.add(cleanLineName);
+          }
+
+          let orVal = 0.0;
+          if (orRaw !== null && orRaw !== "" && orRaw !== "-") {
+            const parsed = parseFloat(String(orRaw).replace("%", ""));
+            if (!isNaN(parsed)) {
+              orVal = Number(parsed.toFixed(1));
+            }
+          }
+          dataset[cleanLineName].weeks[wk] = orVal;
+          count++;
+        }
+      });
+
+      if (count > 0) {
+        maxWeek = detectedMaxWk;
+        renderMatrix();
+        populateMachineCheckboxes();
+      }
+    }
+
+    function applyPastedData() {
+      const rawText = document.getElementById('pasteTextArea').value.trim();
+      if (!rawText) return;
+
+      const lines = rawText.split('\n');
+      let count = 0;
+      let detectedMax = maxWeek;
+
+      lines.forEach(str => {
+        const cols = str.split('\t').map(c => c.trim());
+        if (cols.length < 4) return;
+
+        let wk = parseInt(cols[1], 10);
+        let lineName = cols[2];
+        let group = cols[3];
+        let orStr = cols[8];
+
+        if (isNaN(wk) || !lineName) {
+          wk = parseInt(cols[0], 10);
+          lineName = cols[1];
+          group = cols[2];
+          orStr = cols[7] || cols[cols.length - 1];
+        }
+
+        if (wk && lineName && wk > 0) {
+          if (wk > detectedMax) detectedMax = wk;
+
+          let targetLine = FACTORY_LINES.find(fl => fl.name.toLowerCase() === lineName.toLowerCase());
+          const cleanLineName = targetLine ? targetLine.name : lineName;
+
+          if (!dataset[cleanLineName]) {
+            const area = (group && (group.includes('DS') || group.includes('LS'))) ? 'LSDS' : 'KN';
+            dataset[cleanLineName] = { name: cleanLineName, group: group, area: area, weeks: {} };
+            selectedMachinesSet.add(cleanLineName);
+          }
+
+          let orVal = 0.0;
+          if (orStr && orStr !== "-" && orStr !== "0") {
+            const parsed = parseFloat(orStr.replace("%", ""));
+            if (!isNaN(parsed)) orVal = Number(parsed.toFixed(1));
+          }
+
+          dataset[cleanLineName].weeks[wk] = orVal;
+          count++;
+        }
+      });
+
+      if (count > 0) {
+        maxWeek = detectedMax;
+        closePasteModal();
+        populateMachineCheckboxes();
+        renderMatrix();
+        updateLastSyncedTimestamp();
+      }
+    }
+
+    function updateLastSyncedTimestamp() {
+      const now = new Date();
+      const timeStr = now.toLocaleTimeString('en-US', { hour12: false });
+      const lastSyncedEl = document.getElementById('lastSyncedTime');
+      if (lastSyncedEl) lastSyncedEl.textContent = timeStr;
+    }
+
+    // Auto-refresh Timer Setup
+    function initAutoRefreshTimer() {
+      if (refreshIntervalHandle) clearInterval(refreshIntervalHandle);
+      countdownTimerSec = autoRefreshIntervalSec;
+
+      refreshIntervalHandle = setInterval(() => {
+        if (!isAutoRefreshActive) return;
+
+        countdownTimerSec--;
+        const timerEl = document.getElementById('refreshCountdownDisplay');
+        if (timerEl) timerEl.textContent = `${countdownTimerSec}s`;
+
+        if (countdownTimerSec <= 0) {
+          countdownTimerSec = autoRefreshIntervalSec;
+          syncGoogleSheets(false);
+        }
+      }, 1000);
+    }
+
+    function toggleAutoRefresh() {
+      isAutoRefreshActive = !isAutoRefreshActive;
+      const indicator = document.getElementById('autoRefreshIndicator');
+      const toggleBtn = document.getElementById('autoRefreshToggleBtn');
+
+      if (isAutoRefreshActive) {
+        indicator.className = "w-2 h-2 rounded-full bg-emerald-500 animate-ping inline-block";
+        toggleBtn.className = "flex items-center space-x-1 text-[11px] font-semibold text-emerald-400 hover:text-emerald-300 transition";
+        countdownTimerSec = autoRefreshIntervalSec;
+      } else {
+        indicator.className = "w-2 h-2 rounded-full bg-slate-600 inline-block";
+        toggleBtn.className = "flex items-center space-x-1 text-[11px] font-semibold text-slate-500 hover:text-slate-400 transition";
+        const timerEl = document.getElementById('refreshCountdownDisplay');
+        if (timerEl) timerEl.textContent = 'PAUSED';
+      }
+    }
+
+    function changeAutoRefreshInterval(val) {
+      autoRefreshIntervalSec = parseInt(val, 10) || 60;
+      countdownTimerSec = autoRefreshIntervalSec;
+    }
+
+    // CSV Parsing directly mapped to Consolidated_OR sheet
+    function parseAndApplyCSV(csvText) {
+      const rows = csvText.split(/\r?\n/);
+      let detectedMaxWk = maxWeek;
+      let count = 0;
+
+      rows.forEach((rowStr) => {
+        if (!rowStr.trim()) return;
+        const cols = rowStr.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(v => v.replace(/^"|"$/g, '').trim());
+        
+        let wk = parseInt(cols[1], 10);
+        let line = cols[2];
+        let grp = cols[3] || "";
+        let orRaw = cols[8];
+
+        if (isNaN(wk) || !line) {
+          wk = parseInt(cols[0], 10);
+          line = cols[1];
+          grp = cols[2] || "";
+          orRaw = cols[7];
+        }
+
+        if (!isNaN(wk) && line && wk > 0) {
+          if (wk > detectedMaxWk) detectedMaxWk = wk;
+
+          let targetLine = FACTORY_LINES.find(fl => fl.name.toLowerCase() === line.toLowerCase());
+          const cleanLineName = targetLine ? targetLine.name : line;
+
+          if (!dataset[cleanLineName]) {
+            const area = (grp.includes('DS') || grp.includes('LS')) ? 'LSDS' : 'KN';
+            dataset[cleanLineName] = { name: cleanLineName, group: grp, area: area, weeks: {} };
+            selectedMachinesSet.add(cleanLineName);
+          }
+
+          let orVal = 0.0;
+          if (orRaw !== undefined && orRaw !== null && orRaw !== "" && orRaw !== "-") {
+            const parsed = parseFloat(String(orRaw).replace("%", ""));
+            if (!isNaN(parsed)) {
+              orVal = Number(parsed.toFixed(1));
+            }
+          }
+
+          dataset[cleanLineName].weeks[wk] = orVal;
+          count++;
+        }
+      });
+
+      if (count > 0) {
+        maxWeek = detectedMaxWk;
+        renderMatrix();
+        populateMachineCheckboxes();
+      }
+    }
+
+    function parseAndApplyGviz(rows) {
+      let detectedMaxWk = maxWeek;
+      let count = 0;
+
+      rows.forEach(r => {
+        const c = r.c;
+        if (!c) return;
+
+        let wk = c[1] ? parseInt(c[1].v || c[1].f, 10) : null;
+        let line = c[2] ? String(c[2].v || c[2].f).trim() : null;
+        let grp = c[3] ? String(c[3].v || c[3].f).trim() : "";
+        let orRaw = c[8] ? (c[8].v !== undefined ? c[8].v : c[8].f) : null;
+
+        if (!wk || !line) {
+          wk = c[0] ? parseInt(c[0].v || c[0].f, 10) : null;
+          line = c[1] ? String(c[1].v || c[1].f).trim() : null;
+          grp = c[2] ? String(c[2].v || c[2].f).trim() : "";
+          orRaw = c[7] ? (c[7].v !== undefined ? c[7].v : c[7].f) : null;
+        }
+
+        if (wk && line && wk > 0) {
+          if (wk > detectedMaxWk) detectedMaxWk = wk;
+
+          let targetLine = FACTORY_LINES.find(fl => fl.name.toLowerCase() === line.toLowerCase());
+          const cleanLineName = targetLine ? targetLine.name : line;
+
+          if (!dataset[cleanLineName]) {
+            const area = (grp.includes('DS') || grp.includes('LS')) ? 'LSDS' : 'KN';
+            dataset[cleanLineName] = { name: cleanLineName, group: grp, area: area, weeks: {} };
+            selectedMachinesSet.add(cleanLineName);
+          }
+
+          let orVal = 0.0;
+          if (orRaw !== null && orRaw !== "" && orRaw !== "-") {
+            const parsed = parseFloat(String(orRaw).replace("%", ""));
+            if (!isNaN(parsed)) {
+              orVal = Number(parsed.toFixed(1));
+            }
+          }
+          dataset[cleanLineName].weeks[wk] = orVal;
+          count++;
+        }
+      });
+
+      if (count > 0) {
+        maxWeek = detectedMaxWk;
+        renderMatrix();
+        populateMachineCheckboxes();
+      }
+    }
+
+    function applyPastedData() {
+      const rawText = document.getElementById('pasteTextArea').value.trim();
+      if (!rawText) return;
+
+      const lines = rawText.split('\n');
+      let count = 0;
+      let detectedMax = maxWeek;
+
+      lines.forEach(str => {
+        const cols = str.split('\t').map(c => c.trim());
+        if (cols.length < 4) return;
+
+        let wk = parseInt(cols[1], 10);
+        let lineName = cols[2];
+        let group = cols[3];
+        let orStr = cols[8];
+
+        if (isNaN(wk) || !lineName) {
+          wk = parseInt(cols[0], 10);
+          lineName = cols[1];
+          group = cols[2];
+          orStr = cols[7] || cols[cols.length - 1];
+        }
+
+        if (wk && lineName && wk > 0) {
+          if (wk > detectedMax) detectedMax = wk;
+
+          let targetLine = FACTORY_LINES.find(fl => fl.name.toLowerCase() === lineName.toLowerCase());
+          const cleanLineName = targetLine ? targetLine.name : lineName;
+
+          if (!dataset[cleanLineName]) {
+            const area = (group && (group.includes('DS') || group.includes('LS'))) ? 'LSDS' : 'KN';
+            dataset[cleanLineName] = { name: cleanLineName, group: group, area: area, weeks: {} };
+            selectedMachinesSet.add(cleanLineName);
+          }
+
+          let orVal = 0.0;
+          if (orStr && orStr !== "-" && orStr !== "0") {
+            const parsed = parseFloat(orStr.replace("%", ""));
+            if (!isNaN(parsed)) orVal = Number(parsed.toFixed(1));
+          }
+
+          dataset[cleanLineName].weeks[wk] = orVal;
+          count++;
+        }
+      });
+
+      if (count > 0) {
+        maxWeek = detectedMax;
+        closePasteModal();
+        populateMachineCheckboxes();
+        renderMatrix();
+      }
+    }
+
+    // --- 4. UI POPULATION & RENDERING ---
+    function populateMachineCheckboxes() {
+      const container = document.getElementById('machineCheckboxList');
+      if (!container) return;
+
+      container.innerHTML = '';
+      const lines = Object.keys(dataset);
+
+      const filtered = lines.filter(name => {
+        if (!dropdownSearchQuery) return true;
+        return name.toLowerCase().includes(dropdownSearchQuery.toLowerCase());
+      });
+
+      filtered.forEach(name => {
+        const item = dataset[name];
+        const isChecked = selectedMachinesSet.has(name);
+
+        const row = document.createElement('label');
+        row.className = 'flex items-center space-x-2 p-1 rounded hover:bg-slate-800 cursor-pointer text-slate-300';
+        row.innerHTML = `
+          <input type="checkbox" value="${name}" ${isChecked ? 'checked' : ''} class="machine-checkbox rounded bg-slate-950 border-slate-700 text-cyan-600 focus:ring-0">
+          <span class="truncate">${name}</span>
+          <span class="text-[10px] text-slate-500 ml-auto">[${item.area || 'KN'}]</span>
+        `;
+        
+        const chk = row.querySelector('.machine-checkbox');
+        chk.addEventListener('change', (e) => {
+          e.stopPropagation();
+          onMachineCheckChange(name, e.target.checked);
+        });
+
+        container.appendChild(row);
+      });
+
+      updateSelectedCountDisplay();
+    }
+
+    function onMachineCheckChange(name, checked) {
+      if (checked) {
+        selectedMachinesSet.add(name);
+      } else {
+        selectedMachinesSet.delete(name);
+      }
+      updateSelectedCountDisplay();
+      renderMatrix();
+    }
+
+    function updateSelectedCountDisplay() {
+      const total = Object.keys(dataset).length;
+      const selected = selectedMachinesSet.size;
+      const countDisplay = document.getElementById('selectedCountDisplay');
+      if (!countDisplay) return;
+
+      if (selected === total) {
+        countDisplay.textContent = 'All';
+      } else {
+        countDisplay.textContent = `${selected}/${total}`;
+      }
+    }
+
+    function selectAllMachines(selectAll) {
+      const allNames = Object.keys(dataset);
+      if (selectAll) {
+        selectedMachinesSet = new Set(allNames);
+      } else {
+        selectedMachinesSet.clear();
+      }
+      populateMachineCheckboxes();
+      renderMatrix();
+    }
+
+    function toggleMachineDropdown(e) {
+      if (e) e.stopPropagation();
+      const menu = document.getElementById('machineDropdownMenu');
+      if (menu) menu.classList.toggle('hidden');
+    }
+
+    function setAreaFilter(area) {
+      currentAreaFilter = area;
+      document.getElementById('filterAllBtn').className = `px-2.5 py-1 rounded-md transition ${area === 'ALL' ? 'bg-cyan-700 text-white font-semibold' : 'text-slate-400 hover:text-white'}`;
+      document.getElementById('filterKnBtn').className = `px-2.5 py-1 rounded-md transition ${area === 'KN' ? 'bg-cyan-700 text-white font-semibold' : 'text-slate-400 hover:text-white'}`;
+      document.getElementById('filterLsdsBtn').className = `px-2.5 py-1 rounded-md transition ${area === 'LSDS' ? 'bg-cyan-700 text-white font-semibold' : 'text-slate-400 hover:text-white'}`;
+      renderMatrix();
+    }
+
+    // Modal Control: Line Targets
+    function openTargetModal() {
+      const modal = document.getElementById('targetModal');
+      const listContainer = document.getElementById('modalMachineTargetsList');
+      const globalDisplay = document.getElementById('modalGlobalTargetDisplay');
+      
+      if (globalDisplay) globalDisplay.textContent = globalDefaultTarget.toFixed(1);
+      if (listContainer) {
+        listContainer.innerHTML = '';
+        const lines = Object.keys(dataset);
+        lines.forEach(name => {
+          const currentTgt = machineTargets[name] !== undefined ? machineTargets[name] : globalDefaultTarget;
+          const row = document.createElement('div');
+          row.className = 'flex items-center justify-between p-1.5 bg-slate-950/60 rounded border border-slate-800';
+          row.innerHTML = `
+            <span class="font-medium text-slate-300 truncate">${name}</span>
+            <div class="flex items-center space-x-1">
+              <input type="number" step="0.1" min="50" max="100" id="tgt_input_${name.replace(/[^a-zA-Z0-9]/g, '_')}" value="${currentTgt}" class="w-16 px-1.5 py-0.5 bg-slate-900 border border-slate-700 rounded text-amber-400 font-bold text-center text-xs focus:border-cyan-500">
+              <span class="text-slate-500">%</span>
+            </div>
+          `;
+          listContainer.appendChild(row);
+        });
+      }
+      modal.classList.remove('hidden');
+    }
+
+    function closeTargetModal() {
+      document.getElementById('targetModal').classList.add('hidden');
+    }
+
+    function saveIndividualTargets() {
+      const lines = Object.keys(dataset);
+      lines.forEach(name => {
+        const inputId = `tgt_input_${name.replace(/[^a-zA-Z0-9]/g, '_')}`;
+        const inputElem = document.getElementById(inputId);
+        if (inputElem) {
+          const val = parseFloat(inputElem.value);
+          if (!isNaN(val)) {
+            machineTargets[name] = val;
+          }
+        }
+      });
+      closeTargetModal();
+      renderMatrix();
+    }
+
+    function openPasteModal() {
+      document.getElementById('pasteModal').classList.remove('hidden');
+    }
+
+    function closePasteModal() {
+      document.getElementById('pasteModal').classList.add('hidden');
+    }
+
+    // --- 5. RENDER MATRIX TABLE ---
+    function renderMatrix() {
+      const thead = document.getElementById('matrixThead');
+      const tbody = document.getElementById('matrixTbody');
+      const weekSpanBadge = document.getElementById('weekSpanBadge');
+      const displayedCount = document.getElementById('displayedCount');
+
+      if (!thead || !tbody) return;
+
+      if (weekSpanBadge) weekSpanBadge.textContent = `WK1 - WK${maxWeek}`;
+
+      // Build Header: MACHINE / LINE + WK1..WK[maxWeek]
+      let theadHtml = `<tr>
+        <th class="sticky-corner bg-[#091220] px-4 py-2.5 text-cyan-300 border-r border-slate-700 text-xs font-bold tracking-wider w-44 min-w-[176px]">
+          MACHINE / LINE
+        </th>`;
+      for (let w = 1; w <= maxWeek; w++) {
+        theadHtml += `<th class="px-2 py-2.5 text-center text-slate-300 border-r border-slate-800 text-[11px] font-bold min-w-[58px]">WK${w}</th>`;
+      }
+      theadHtml += `</tr>`;
+      thead.innerHTML = theadHtml;
+
+      // Filter Lines to display
+      let lineNames = Object.keys(dataset);
+
+      // เรียงลำดับ: KN ขึ้นก่อน แล้วตามด้วย LSDS
+      lineNames.sort((a, b) => {
+        const itemA = dataset[a];
+        const itemB = dataset[b];
+        const areaA = itemA.area || 'KN';
+        const areaB = itemB.area || 'KN';
+
+        if (areaA !== areaB) {
+          return areaA === 'KN' ? -1 : 1;
+        }
+
+        const idxA = FACTORY_LINES.findIndex(l => l.name === a);
+        const idxB = FACTORY_LINES.findIndex(l => l.name === b);
+        if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+        if (idxA !== -1) return -1;
+        if (idxB !== -1) return 1;
+        return a.localeCompare(b);
+      });
+
+      const filteredLines = lineNames.filter(name => {
+        const item = dataset[name];
+        if (currentAreaFilter !== 'ALL' && item.area !== currentAreaFilter) return false;
+        if (!selectedMachinesSet.has(name)) return false;
+        if (searchQuery && !name.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+        return true;
+      });
+
+      if (displayedCount) displayedCount.textContent = filteredLines.length;
+
+      let tbodyHtml = '';
+
+      filteredLines.forEach(name => {
+        const item = dataset[name];
+        const target = machineTargets[name] !== undefined ? machineTargets[name] : globalDefaultTarget;
+
+        tbodyHtml += `<tr class="hover:bg-slate-800/40 transition">
+          <td class="sticky-col bg-[#0b1628] px-3 py-2 border-r border-b border-slate-700/80 text-xs font-semibold text-slate-200 truncate">
+            <div class="flex items-center justify-between">
+              <span class="truncate">${name}</span>
+              <span class="text-[10px] text-cyan-400 font-normal ml-1">(${target.toFixed(0)}%)</span>
+            </div>
+          </td>`;
+
+        for (let w = 1; w <= maxWeek; w++) {
+          const orVal = item.weeks[w] !== undefined ? item.weeks[w] : 0.0;
+
+          let cellClass = 'cell-empty';
+          let displayVal = '-';
+
+          if (orVal > 0) {
+            displayVal = `${orVal.toFixed(1)}%`;
+            if (orVal >= target) {
+              cellClass = 'cell-pass';
+            } else {
+              cellClass = 'cell-fail';
+            }
+          }
+
+          tbodyHtml += `<td class="text-center px-1 py-1.5 border-r border-b border-slate-800/80 text-[11px] font-bold ${cellClass}">
+            ${displayVal}
+          </td>`;
+        }
+
+        tbodyHtml += `</tr>`;
+      });
+
+      tbody.innerHTML = tbodyHtml;
+    }
+
+    // Global click listener to close dropdown cleanly
+    window.addEventListener('click', (e) => {
+      const btn = document.getElementById('machineFilterBtn');
+      const menu = document.getElementById('machineDropdownMenu');
+      if (btn && menu && !btn.contains(e.target) && !menu.contains(e.target)) {
+        menu.classList.add('hidden');
+      }
+    });
+
+    // --- 6. INITIALIZATION & TEST RUN ---
+    window.onload = function () {
+      initializeDataset();
+      const globalInput = document.getElementById('globalTargetInput');
+      if (globalInput) globalInput.value = globalDefaultTarget;
+
+      populateMachineCheckboxes();
+      renderMatrix();
+      lucide.createIcons();
+
+      // Target Input listener
+      if (globalInput) {
+        globalInput.addEventListener('change', (e) => {
+          const val = parseFloat(e.target.value);
+          if (!isNaN(val) && val >= 50 && val <= 100) {
+            globalDefaultTarget = val;
+            Object.keys(machineTargets).forEach(mc => {
+              machineTargets[mc] = val;
+            });
+            renderMatrix();
+          }
+        });
+      }
+
+      // Quick Search input listener
+      const searchInput = document.getElementById('searchInput');
+      if (searchInput) {
+        searchInput.addEventListener('input', (e) => {
+          searchQuery = e.target.value.trim();
+          renderMatrix();
+        });
+      }
+
+      // Dropdown internal search
+      const ddSearch = document.getElementById('dropdownSearchInput');
+      if (ddSearch) {
+        ddSearch.addEventListener('input', (e) => {
+          dropdownSearchQuery = e.target.value.trim();
+          populateMachineCheckboxes();
+        });
+      }
+
+      // Initial Sync from Google Sheet
+      syncGoogleSheets();
+
+      // Start Auto-Refresh Engine
+      initAutoRefreshTimer();
+    };
+  </script>
+</body>
+</html>
